@@ -1,0 +1,47 @@
+# FILE MAP
+#   purpose: package metadata, dependencies, and tool config for railcast
+#   sections:
+#     L9-28  Project
+#     L30-36  Build
+#     L38-47  Tools
+# END FILE MAP
+
+# == Project ==
+[project]
+name = "railcast"
+version = "0.1.0"
+description = "Zero-cost transit delay nowcaster for NJ Transit rail and MTA subway"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "gtfs-realtime-bindings>=1.0",
+    "protobuf>=4.25",
+    "pyarrow>=15",
+    "cryptography>=42",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+railcast-collect = "railcast.collect.run:main"
+
+# == Build ==
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/railcast"]
+
+# == Tools ==
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

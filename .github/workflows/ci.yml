@@ -1,0 +1,32 @@
+# FILE MAP
+#   purpose: lint, FILE MAP freshness, and tests on every push and PR
+#   sections:
+#     L8-16  Triggers
+#     L18-32  Jobs
+# END FILE MAP
+
+# == Triggers ==
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# == Jobs ==
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # uv: installs Python and the locked dependencies in seconds.
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run python scripts/filemap.py --check
+      - run: uv run pytest -q
