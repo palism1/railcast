@@ -1,18 +1,20 @@
 # FILE MAP
 #   purpose: write raw snapshots, normalized parquet, and the uptime log into the data repo
 #   sections:
-#     L24-32  Paths
-#     L35-93  Write
+#     L26-34  Paths
+#     L37-120  Write
 # END FILE MAP
 """Data repo layout (all paths UTC):
 
 raw/YYYY-MM-DD/HHMM_<feed>.pb.gz     exact bytes we received, gzipped
 parquet/YYYY-MM-DD/HHMM.parquet      normalized trip-update rows for the whole run
 logs/uptime/YYYY-MM-DD.csv           one row per feed per run, including failures
+state/<feed>.sha256                  last stored alerts content, so unchanged alerts are skipped
 """
 
 import csv
 import gzip
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -24,7 +26,7 @@ from railcast.collect.fetch import FetchResult
 # == Paths ==
 UPTIME_FIELDS = [
     "run_started_at", "cron_lag_s", "agency", "feed", "status", "http_status",
-    "bytes", "latency_ms", "feed_ts", "feed_age_s", "entities", "error",
+    "bytes", "latency_ms", "feed_ts", "feed_age_s", "entities", "error", "raw_stored",
 ]  # fmt: skip
 
 
@@ -33,17 +35,41 @@ def stamp(run_at: datetime) -> tuple[str, str]:
 
 
 # == Write ==
+def content_hash(r: FetchResult) -> str:
+    """Hash of the feed with the header timestamp cleared, so a re-stamped but otherwise
+    identical alerts feed hashes the same."""
+    msg = type(r.message)()
+    msg.CopyFrom(r.message)
+    msg.header.ClearField("timestamp")
+    return hashlib.sha256(msg.SerializeToString(deterministic=True)).hexdigest()
+
+
+def alerts_unchanged(out: Path, r: FetchResult) -> bool:
+    """True if this alerts payload matches the last stored one. Updates state when it differs.
+    TWEAK: alerts are ~40% of raw bytes per run and change far less often than every 5 min."""
+    if r.feed.kind != "alerts" or r.message is None:
+        return False
+    state = out / "state" / f"{r.feed.name}.sha256"
+    h = content_hash(r)
+    if state.exists() and state.read_text().strip() == h:
+        return True
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(h + "\n")
+    return False
+
+
 def write_raw(out: Path, run_at: datetime, results: list[FetchResult]) -> list[Path]:
     day, hhmm = stamp(run_at)
     written = []
     for r in results:
-        if r.status != "ok" or r.feed.kind == "static":
+        if r.status != "ok" or r.feed.kind == "static" or alerts_unchanged(out, r):
             continue
         p = out / "raw" / day / f"{hhmm}_{r.feed.name}.pb.gz"
         p.parent.mkdir(parents=True, exist_ok=True)
         # mtime=0 keeps the gzip bytes deterministic for identical payloads.
         p.write_bytes(gzip.compress(r.content, mtime=0))
         written.append(p)
+        r.raw_stored = True
     return written
 
 
@@ -88,6 +114,7 @@ def append_uptime(out: Path, run_at: datetime, results: list[FetchResult]) -> Pa
                     "feed_age_s": age,
                     "entities": r.entities,
                     "error": r.error.replace("\n", " ")[:200],
+                    "raw_stored": int(r.raw_stored),
                 }
             )
     return p

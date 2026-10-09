@@ -2,7 +2,7 @@
 #   purpose: end-to-end collector run against fake feeds: layout, uptime log, dry run, static
 #   sections:
 #     L22-36  Helpers
-#     L39-79  Tests
+#     L39-105  Tests
 # END FILE MAP
 import csv
 import io
@@ -77,3 +77,29 @@ def test_uptime_report_counts_gaps(tmp_path):
     assert rep["runs"] == 3 and rep["expected_runs"] == 4
     assert rep["gap_max_s"] == 880
     assert rep["feeds"] == {"mta-ace": 1.0, "mta-g": 0.0}
+
+
+def test_unchanged_alerts_are_not_stored_twice(tmp_path, mta_bytes, monkeypatch):
+    from google.transit import gtfs_realtime_pb2 as rt
+
+    monkeypatch.delenv("NJT_USERNAME", raising=False)
+
+    def alerts(ts, text):
+        m = rt.FeedMessage()
+        m.header.gtfs_realtime_version, m.header.timestamp = "2.0", ts
+        m.entity.add(id="a1").alert.header_text.translation.add(text=text)
+        return m.SerializeToString()
+
+    alerts_url = next(f.url for f in MTA_FEEDS if f.kind == "alerts")
+    runs = [(RUN_AT, alerts(1, "A delays")), (RUN_AT.replace(minute=11), alerts(2, "A delays"))]
+    runs.append((RUN_AT.replace(minute=16), alerts(3, "A suspended")))
+    for at, payload in runs:
+        sess = session(mta_bytes)
+        sess.routes[alerts_url] = FakeResponse(content=payload)
+        runner.run(tmp_path, tmp_path / "c.bin", at, sess)
+    stored = sorted(p.name for p in (tmp_path / "raw/2026-10-08").glob("*alerts*"))
+    # Run 2 only re-stamped the header, so it is skipped; run 3 changed content.
+    assert stored == ["1306_mta-alerts.pb.gz", "1316_mta-alerts.pb.gz"]
+    with open(tmp_path / "logs/uptime/2026-10-08.csv") as f:
+        flags = [r["raw_stored"] for r in csv.DictReader(f) if r["feed"] == "mta-alerts"]
+    assert flags == ["1", "0", "1"]

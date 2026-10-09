@@ -1,8 +1,8 @@
 # FILE MAP
 #   purpose: shared fetch result type and HTTP-with-retries helper
 #   sections:
-#     L19-37  Result
-#     L40-89  Fetch
+#     L19-38  Result
+#     L41-90  Fetch
 # END FILE MAP
 """HTTP plumbing shared by the MTA and NJT collectors."""
 
@@ -34,6 +34,7 @@ class FetchResult:
     error: str = ""
     feed_ts: int | None = None  # FeedHeader.timestamp, server-side snapshot time
     entities: int = 0
+    raw_stored: bool = False  # set by store.write_raw; False for failures and unchanged alerts
     message: gtfs_realtime_pb2.FeedMessage | None = field(default=None, repr=False)
 
 

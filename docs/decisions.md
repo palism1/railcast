@@ -18,11 +18,15 @@ One entry per choice that someone might later ask "why?" about. Newest last.
 ## D4. MTA static GTFS uses the regular feed for now (2026-10-08)
 `gtfs_supplemented.zip` reflects planned service changes and will matter for delay labels. It changes much more often, though, and is stored by hash, so it could grow the repo fast. That decision is deferred to Week 2, when labels are built.
 
-## D5. Test fixtures are synthetic until the first live run (2026-10-08)
-The build sandbox could not reach either feed. `tests/fixtures/make_fixtures.py` builds protobufs shaped like each agency's feed. **TODO:** after the first live collection, copy one real `raw/*.pb.gz` per agency into `tests/fixtures/` and point the tests at it.
+## D5. Test fixtures: synthetic per agency, plus real captures (2026-10-08, updated 2026-10-09)
+The build sandbox could not reach either feed, so `tests/fixtures/make_fixtures.py` builds protobufs shaped like each agency's feed. `real_mta_si_20261008T2356Z.pb.gz` is a real Staten Island Railway snapshot from the first live run. It is the smallest MTA feed, and it covers a single-dot trip_id format (`115100_SI.N03R`) that the synthetic fixture did not. **TODO:** add a real NJT capture once credentials exist.
 
 ## D6. FILE MAP line ranges are generated, not hand-written (2026-10-08)
 Hand-maintained line ranges rot on the first edit. Sections are marked `# == Name ==`. `scripts/filemap.py` rewrites the header, and CI fails if one is stale.
 
 ## D7. MTA-only until NJ Transit credentials exist (2026-10-08)
 NJT feeds log as `skipped` until `NJT_USERNAME` and `NJT_PASSWORD` are set as secrets on `railcast-data`. MTA collection should not wait on NJT's manual approval.
+
+## D8. Alerts raw bytes are stored only when the content changes (2026-10-09)
+**Why:** in the first live run, the MTA alerts feed was 82 KB gzipped, about 40% of raw bytes per run. Alerts change far less often than every 5 minutes.
+**How:** the content is hashed with the header timestamp cleared, and the last hash is kept in `state/<feed>.sha256` in the data repo. The uptime log still records every fetch. `raw_stored=0` marks a skipped duplicate, so "unchanged" and "down" stay distinguishable.
