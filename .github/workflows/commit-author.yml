@@ -1,0 +1,37 @@
+# FILE MAP
+#   purpose: fail a PR if any commit is not authored by the repo owner (see CLAUDE.md)
+#   sections:
+#     L8-15  Triggers
+#     L17-37  Jobs
+# END FILE MAP
+
+# == Triggers ==
+name: commit-author
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# == Jobs ==
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    steps:
+      # Convention from CLAUDE.md: every commit is authored by the repo owner.
+      # Claude appears as a Co-Authored-By trailer, never as the author.
+      - name: Every commit in this PR is authored by the repo owner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          bad=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/commits" --paginate \
+            --jq ".[] | select(.author.login != \"${OWNER}\") | \"\(.sha[0:7]) \(.commit.author.name)\"")
+          if [ -n "$bad" ]; then
+            echo "::error::These commits are not authored by ${OWNER}. Re-author them (see CLAUDE.md):"
+            echo "$bad"
+            exit 1
+          fi
+          echo "All commits authored by ${OWNER}."
