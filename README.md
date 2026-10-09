@@ -2,7 +2,7 @@
 
 A free, always-on delay nowcaster for NJ Transit rail and the MTA subway. It predicts delays 15, 30 and 60 minutes ahead, then scores itself in public every day against a "current delay persists" baseline.
 
-**Status: Week 1 of 10, collector only.** No model or site yet. The plan is in [docs/architecture.md](docs/architecture.md), and choices are logged in [docs/decisions.md](docs/decisions.md).
+**Status: collector only.** No model or site yet. The plan is in [docs/architecture.md](docs/architecture.md), and choices are logged in [docs/decisions.md](docs/decisions.md).
 
 ## How it works (so far)
 

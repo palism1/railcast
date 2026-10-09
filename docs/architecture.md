@@ -1,6 +1,6 @@
 # Architecture
 
-Week 1 scope: collection only. The full 10-week design (model, scoring, site, drift) is in the project plan. This file grows as each piece lands.
+Current scope: collection only. Modeling, scoring, the site and drift monitoring come later. This file grows as each piece lands.
 
 ```
 railcast-data/.github/workflows/collect.yml   (cron */5, plus manual dispatch)

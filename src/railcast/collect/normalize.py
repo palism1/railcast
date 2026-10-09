@@ -31,7 +31,7 @@ SCHEMA = pa.schema(
         ("stop_id", pa.string()),
         ("stop_seq", pa.int32()),
         ("arr_time", pa.int64()),
-        ("arr_delay", pa.int32()),  # seconds; often absent in MTA feeds (labels come in Week 2)
+        ("arr_delay", pa.int32()),  # seconds; often absent in MTA feeds (derived by labeling)
         ("dep_time", pa.int64()),
         ("dep_delay", pa.int32()),
         ("schedule_relationship", pa.string()),
